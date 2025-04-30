@@ -1,0 +1,157 @@
+import pandas as pd
+df = pd.read_excel('Statistics.xlsx', engine='openpyxl')
+
+selected = df[df['NObeyesdad'].isin([
+    'Overweight_Level_I', 'Overweight_Level_II',
+    'Obesity_Type_I', 'Obesity_Type_II', 'Obesity_Type_III'
+])]
+selected = selected[['TUE', 'FAVC', 'FAF', 'CAEC', 'NObeyesdad']]
+print(selected.head())
+
+# ฟังก์ชันสำหรับจัดกลุ่มเวลาใช้เทคโนโลยี
+def group_tue(tue):
+    if tue < 2:
+        return 'Low'
+    elif tue <= 5:
+        return 'Medium'
+    else:
+        return 'High'
+
+# 6. สร้างคอลัมน์ใหม่ชื่อ 'TUE_Group' โดย apply ฟังก์ชัน
+selected['TUE_Group'] = selected['TUE'].apply(group_tue)
+
+# 7. ดูข้อมูลตัวอย่าง (เฉพาะ TUE และ TUE_Group)
+print(selected[['TUE', 'TUE_Group']].head())
+
+# 8. เช็กว่ามีคอลัมน์อะไรบ้าง
+print(selected.columns)
+
+# สรุปสถิติเชิงพรรณนา
+print(selected.describe())
+
+#ทำ Chi-Square Test ระหว่าง TUE_Group กับ FAVC
+from scipy.stats import chi2_contingency
+
+# สร้างตารางไขว้ (Contingency Table)
+contingency_table = pd.crosstab(selected['TUE_Group'], selected['FAVC'])
+
+# ดูตารางไขว้
+print(contingency_table)
+
+# ทำ Chi-Square Test
+chi2, p, dof, expected = chi2_contingency(contingency_table)
+
+# แสดงผลลัพธ์
+print(f"Chi2 = {chi2}")
+print(f"P-value = {p}")
+print(f"Degrees of Freedom = {dof}")
+
+#Chi-Square Test ระหว่าง TUE_Group กับ CAEC
+# 1. สร้างตารางไขว้ระหว่าง TUE_Group และ CAEC
+contingency_table_caec = pd.crosstab(selected['TUE_Group'], selected['CAEC'])
+
+# ดูตารางไขว้
+print(contingency_table_caec)
+
+# 2. ทำ Chi-Square Test
+chi2_caec, p_caec, dof_caec, expected_caec = chi2_contingency(contingency_table_caec)
+
+# 3. แสดงผลลัพธ์
+print(f"Chi2 (TUE vs CAEC) = {chi2_caec}")
+print(f"P-value (TUE vs CAEC) = {p_caec}")
+print(f"Degrees of Freedom = {dof_caec}")
+
+
+#ความสัมพันธ์ TUE กับ FAF (t-test)
+from scipy.stats import ttest_ind
+
+# ดึงข้อมูล
+low_faf = selected[selected['TUE_Group'] == 'Low']['FAF'].dropna()
+medium_faf = selected[selected['TUE_Group'] == 'Medium']['FAF'].dropna()
+
+# ทำ t-test เทียบสองกลุ่ม
+t_stat, p_value = ttest_ind(low_faf, medium_faf, equal_var=False)
+
+print(f"T-statistic = {t_stat:.4f}")
+print(f"P-value = {p_value:.4f}")
+
+#TUE_Group กับ NObeyesdad (Overweight/Obese)
+# 1. สร้างคอลัมน์ Obese
+selected['Obese'] = selected['NObeyesdad'].apply(lambda x: 1 if 'Obesity' in x else 0)
+
+# 2. ตารางไขว้
+contingency_table = pd.crosstab(selected['TUE_Group'], selected['Obese'])
+
+# 3. Chi-Square Test
+chi2, p, dof, expected = chi2_contingency(contingency_table)
+
+# 4. แสดงผล
+print(f"Chi2 = {chi2}")
+print(f"P-value = {p}")
+print(f"Degrees of Freedom = {dof}")
+
+
+#กราฟ TUE_Group กับ FAVC
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# สร้างตารางสรุป
+table_favc = pd.crosstab(selected['TUE_Group'], selected['FAVC'])
+
+# วาดกราฟแบบ Stacked Bar
+table_favc.plot(kind='bar', stacked=True, colormap='Set3')
+plt.title('TUE Group vs FAVC (Eating High-Fat Food)')
+plt.xlabel('TUE Group')
+plt.ylabel('Count')
+plt.legend(title='FAVC (High-Fat Food)')
+plt.grid(axis='y')
+plt.show()
+
+#กราฟ TUE_Group กับ CAEC
+# สร้างตารางสรุป
+table_caec = pd.crosstab(selected['TUE_Group'], selected['CAEC'])
+
+# วาดกราฟ
+table_caec.plot(kind='bar', stacked=True, colormap='Pastel1')
+plt.title('TUE Group vs CAEC (Frequency of Fast Food Consumption)')
+plt.xlabel('TUE Group')
+plt.ylabel('Count')
+plt.legend(title='CAEC (Fast Food Frequency)', bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.grid(axis='y')
+plt.show()
+
+#Chi-Square Test ระหว่าง TUE_Group กับ NObeyesdad
+# สร้างคอลัมน์ Overweight/Obese (0 = Overweight, 1 = Obese)
+selected['Obese'] = selected['NObeyesdad'].apply(lambda x: 1 if 'Obesity' in x else 0)
+# ตารางไขว้
+table_obese = pd.crosstab(selected['TUE_Group'], selected['Obese'])
+
+# วาดกราฟ
+table_obese.plot(kind='bar', stacked=True, colormap='Set2')
+plt.title('TUE Group vs Overweight/Obese Status')
+plt.xlabel('TUE Group')
+plt.ylabel('Count')
+plt.legend(title='Obese (0=Overweight, 1=Obese)')
+plt.grid(axis='y')
+plt.show()
+
+#กราฟt-test ความสัมพันธ์ TUE_Group กับ FAF
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# เตรียมข้อมูลกลุ่ม (เรามีแค่ Low กับ Medium เท่านั้น)
+data_plot = selected[selected['TUE_Group'].isin(['Low', 'Medium'])]
+
+# สร้างกราฟ Boxplot
+plt.figure(figsize=(8, 6))
+sns.boxplot(x='TUE_Group', y='FAF', data=data_plot, palette="pastel")
+plt.title('Comparison of FAF between Low and Medium Groups', fontsize=16)
+plt.xlabel('TUE Group')
+plt.ylabel('FAF Score')
+plt.grid(True)
+plt.show()
+
+
+
+
+
